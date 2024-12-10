@@ -33,6 +33,7 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/login", Login).Methods("POST")
 	router.HandleFunc("/users", Auth(UserHandler)).Methods("GET") // Admin only
 	router.HandleFunc("/account", Auth(AccountsHandler)).Methods("POST", "GET")
+	router.HandleFunc("/transfer", Auth(foo)).Methods("POST")
 	router.HandleFunc("/balance", Auth(BalanceHandler)).Methods("GET", "POST", "DELETE")
 	loggedRouter := logger.LogRequestResponse(router)
 	fmt.Println("Server is starting on", s.listenAddr)
@@ -169,6 +170,58 @@ func listAccounts(w http.ResponseWriter, r *http.Request, claims *Claims) {
 	json.NewEncoder(w).Encode(accounts)
 
 }
+
+func foo(w http.ResponseWriter, r *http.Request, claims *Claims){
+	if claims.Role != "user" {
+	http.Error(w, "UnoAuthorized", http.StatusNotFound)
+	return
+	}
+	var body struct {
+	UserID int     `json:"user_id"`
+	UserID2 int     `json:"uid2"`
+	Amount float64 `json:"amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	uid2, ok := users[uid2];
+	if ok != nil{
+		http.Error(w, "user2 not exist", http.StatusNotFound)
+		}
+	//check if possible to transfer his amount
+		if accounts[claims.UserID].UserID == body.UserID {
+			if body.Amount <= 0 {
+				http.Error(w, "Amount must be greater than zero", http.StatusBadRequest)
+				return
+			}
+			account := accounts[claims.UserID]
+			if account.Balance < body.Amount {
+				http.Error(w, "Insufficient funds", http.StatusBadRequest)
+				return
+			}
+			account.Balance -= body.Amount
+			accounts[claims.UserID] = account
+			json.NewEncoder(w).Encode(account)
+			return
+		}
+
+		//give uid2 amount money to its account
+		account := accounts[uid2]
+		account.Balance += body.Amount
+		accounts[uid2] = account
+		json.NewEncoder(w).Encode(account)
+		return
+	
+	
+	
+	
+	
+
+	
+	
+}
+
 
 func BalanceHandler(w http.ResponseWriter, r *http.Request, claims *Claims) {
 	if claims.Role != "user" {
